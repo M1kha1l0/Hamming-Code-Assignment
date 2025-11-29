@@ -1,14 +1,24 @@
+#pragma once
+#include <cstdio>
+#include <cstdint>
 #include <vector>
-#include <string>
 
-namespace codec {
-    class HammingCodec {
-        public:
-            static void SetBit(void* byte_sequence, uint64_t index, bool bit);
+class HammingCodec {
+    private:
+        static uint64_t CalculateControlBitsCount(uint64_t bytes_block_size);
+    
+        static uint64_t CalculateTotalSize(uint64_t bytes_block_size);
+    
+        static uint64_t CalculateSyndrome(uint8_t* data, uint64_t control_bit_count, uint64_t total_bits);
 
-            static bool GetBit(void* byte_sequence, uint64_t index);
+    public:
+        static void SetBit(void* array, uint64_t index, bool value);
 
-            static void InvertBit(void* byte_sequence, uint64_t index);
-    };
+        static bool GetBit(void* array, uint64_t index);
 
-} // namespace codec
+        static void InvertBit(void* array, uint64_t index);
+            
+        static std::vector<uint8_t> Encode(void *byte_sequence, uint64_t data_bits, uint64_t control_bits);
+
+        static std::vector<uint8_t> Decode(void* byte_sequence, uint64_t data_bits, uint64_t control_bits);
+};
