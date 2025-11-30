@@ -3,6 +3,8 @@
 #include <vector>
 #include <limits>
 
+#include "codec.h"
+
 enum Mode {
     ENCODE,
     DECODE,
@@ -46,7 +48,20 @@ int StringToInt(const char *string) {
 }
 
 std::vector<uint8_t> ConvertToChanks(std::string bit_sequence) {
+    uint64_t byte_counts = (bit_sequence.length() + 7) / 8;
+    std::vector<uint8_t> data;
+    data.resize(byte_counts, 0);
 
+    for(int i = 0;i < bit_sequence.length();i++) {
+        if(bit_sequence[i] == '0') {
+            HammingCodec::SetBit(data.data(), i, 0);
+        }
+        else {
+            HammingCodec::SetBit(data.data(), i, 1);
+        }
+    }
+
+    return data;
 }
 
 InputArgs Parse(int argc, char** argv) {
@@ -65,7 +80,7 @@ InputArgs Parse(int argc, char** argv) {
             return result;
         }
 
-
+        result.data = ConvertToChanks(argv[4]);
     }
     else if(mode == "decode") {
         result.mode = Mode::DECODE;
@@ -76,6 +91,8 @@ InputArgs Parse(int argc, char** argv) {
             fprintf(stderr, "Hammming: In function Parse(int, char**)\n\tInvalid integer '%s'\nNote: >0\n", argv[2]);
             return result;
         }
+
+        result.data = ConvertToChanks(argv[3]);
     }
     else if(mode == "is_valid") {
         result.mode = Mode::VALIDATE;
@@ -86,6 +103,8 @@ InputArgs Parse(int argc, char** argv) {
             fprintf(stderr, "Hammming: In function Parse(int, char**)\n\tInvalid integer '%s'\nNote: >0\n", argv[2]);
             return result;
         }
+
+        result.data = ConvertToChanks(argv[3]);
     }
     else {
         result.mode = Mode::ERROR;
@@ -93,13 +112,46 @@ InputArgs Parse(int argc, char** argv) {
         return result;
     }
 
-
-    
     return result;
+}
+
+void PrintBits(std::vector<uint8_t>& bits, uint64_t bits_count) {
+    for(int i = 0;i < bits_count;i++) {
+        if(HammingCodec::GetBit(bits.data(), i)) {
+            fprintf(stdout, "1");
+        }
+        else {
+            fprintf(stdout, "0");
+        }
+    }
+    fprintf(stdout, "\n");
 }
 
 int main(int argc, char** argv) {
     InputArgs args = Parse(argc, argv);
+
+    switch (args.mode) {
+        case Mode::ENCODE: {
+            std::vector<uint8_t> encoded_data = HammingCodec::Encode(args.data.data(), args.data_bits, args.total_bits);
+            PrintBits(encoded_data, args.total_bits);
+            break;
+        }
+        
+        case Mode::DECODE: {
+            std::vector<uint8_t> decoded_data = HammingCodec::Decode(args.data.data(), args.total_bits);
+            PrintBits(decoded_data, args.total_bits);
+            break;
+        }
+        
+        case Mode::VALIDATE: {
+            fprintf(stdout, "%d\n", HammingCodec::IsValid(args.data.data(), args.total_bits));
+            break;
+        }
+            
+        default: {
+            return 1;
+        }
+    }
     
     return 0;
 }

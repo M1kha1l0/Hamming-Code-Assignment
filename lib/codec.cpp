@@ -20,10 +20,10 @@ void HammingCodec::InvertBit(void* array, uint64_t index) {
     data[index / 8] ^= (1 << (index % 8));
 }
 
-uint64_t HammingCodec::CalculateControlBitsCount(uint64_t bytes_block_size) {
+uint64_t HammingCodec::CalculateControlBitsCount(uint64_t total_bits) {
     uint64_t result = 0;
 
-    while((1 << result) < (bytes_block_size*8 + result + 1)) {
+    while((1 << result) < (total_bits + result + 1)) {
         result++;
     }
 
@@ -58,13 +58,43 @@ uint64_t HammingCodec::CalculateSyndrome(uint8_t* data, uint64_t control_bit_cou
 }
             
 std::vector<uint8_t> HammingCodec::Encode(void *byte_sequence, uint64_t data_bits, uint64_t control_bits) {
+    uint64_t total_bits = data_bits + control_bits;
+    uint64_t encode_bytes_count = (total_bits + 7) / 8;
+        
     std::vector<uint8_t> result;
     uint8_t* data = static_cast<uint8_t*>(byte_sequence);
-    
+    result.resize(encode_bytes_count, 0);
+
+    uint64_t data_bit_index = 0;
+    for(uint64_t i = 1;i <= total_bits;i++) {
+        if((i & (i-1)) != 0) {
+            if(data_bit_index < data_bits) {
+                SetBit(result.data(), i - 1, GetBit(data, data_bit_index));
+                data_bit_index++;
+            }
+        }
+
+    }
+
+    for(uint64_t control_bit_pos = 1;control_bit_pos <= total_bits;control_bit_pos <<= 1) {
+        uint8_t control_bit = 0;
+        for(int i = 1; i <= total_bits;i++) {
+            if(control_bit_pos & i) {
+                control_bit ^= GetBit(result.data(), i-1);
+            }
+        }
+
+        SetBit(result.data(), control_bit_pos-1, control_bit);
+    }
+
     return result;
 }
 
-std::vector<uint8_t> HammingCodec::Decode(void* byte_sequence, uint64_t data_bits, uint64_t control_bits) {
+bool HammingCodec::IsValid(void* byte_sequence, uint64_t total_bits) {
+
+}
+
+std::vector<uint8_t> HammingCodec::Decode(void* byte_sequence, uint64_t total_bits) {
     std::vector<uint8_t> result;
     uint8_t* data = static_cast<uint8_t*>(byte_sequence);
 
