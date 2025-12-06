@@ -20,19 +20,19 @@ void HammingCodec::InvertBit(void* array, uint64_t index) {
     data[index / 8] ^= (1 << (index % 8));
 }
 
-uint64_t HammingCodec::CalculateControlBitsCount(uint64_t bytes_block_size) {
+uint64_t HammingCodec::CalculateControlBitsCount(uint64_t total_bits) {
     uint64_t result = 0;
 
-    while((1 << result) < (bytes_block_size*8 + result + 1)) {
+    while((1 << result) < (total_bits + result + 1)) {
         result++;
     }
 
     return result;
 }
 
-uint64_t HammingCodec::CalculateTotalSize(uint64_t bytes_block_size) {
-    uint64_t bits = CalculateControlBitsCount(bytes_block_size);
-    return bytes_block_size + (bits + 7) / 8;
+uint64_t HammingCodec::CalculateTotalSize(uint64_t data_bits, uint64_t src_bits) {
+    uint64_t data_blocks = (src_bits + data_bits - 1) / data_bits;
+    return data_blocks * CalculateControlBitsCount(data_bits) + src_bits;
 }
 
 uint64_t HammingCodec::CalculateSyndrome(uint8_t* data, uint64_t control_bit_count, uint64_t total_bits) {
@@ -57,14 +57,23 @@ uint64_t HammingCodec::CalculateSyndrome(uint8_t* data, uint64_t control_bit_cou
     return syndrome;
 }
             
-std::vector<uint8_t> HammingCodec::Encode(void *byte_sequence, uint64_t data_bits, uint64_t control_bits) {
-    std::vector<uint8_t> result;
+std::vector<uint8_t> HammingCodec::Encode(void *byte_sequence, uint64_t src_bits, uint64_t data_bits, uint64_t block_bits) {
+    std::vector<uint8_t> encoded_data((CalculateTotalSize(data_bits, src_bits) + 7) / 8, 0);
     uint8_t* data = static_cast<uint8_t*>(byte_sequence);
+
+    for(int i = 0; i < src_bits; i += data_bits) {
+        for(int j = 0; j < data_bits;j++) {
+            // выбираем блоки по data_bits
+            // кодируем
+            // итоговую последовательность бит записываем в массив чанков
+        }
+    }
+
     
-    return result;
+    return encoded_data;
 }
 
-std::vector<uint8_t> HammingCodec::Decode(void* byte_sequence, uint64_t data_bits, uint64_t control_bits) {
+std::vector<uint8_t> HammingCodec::Decode(void* byte_sequence, uint64_t total_bits) {
     std::vector<uint8_t> result;
     uint8_t* data = static_cast<uint8_t*>(byte_sequence);
 
