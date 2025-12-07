@@ -3,6 +3,8 @@
 #include <vector>
 #include <limits>
 
+#include <fstream>
+
 #include "codec.h"
 
 enum Mode {
@@ -14,9 +16,8 @@ enum Mode {
 
 struct InputArgs {
     Mode mode;
-    uint64_t block_bits;
+    uint64_t total_bits;
     uint64_t data_bits;
-    uint64_t src_bits;
     std::vector<uint8_t> data;
 };
 
@@ -71,40 +72,37 @@ InputArgs Parse(int argc, char** argv) {
     if(mode == "encode") {
         result.mode = Mode::ENCODE;
 
-        result.block_bits = StringToInt(argv[2]);
-        result.block_bits = StringToInt(argv[3]);
-        if(result.data_bits < 0 || result.block_bits < 0) {
+        result.total_bits = StringToInt(argv[2]);
+        result.total_bits = StringToInt(argv[3]);
+        if(result.data_bits < 0 || result.total_bits < 0) {
             result.mode = Mode::ERROR;
             fprintf(stderr, "Hammming: In function Parse(int, char**)\n\tInvalid integer '%s'\nNote: >0\n", argv[2]);
             return result;
         }
-        result.src_bits = std::string(argv[4]).length();
         result.data = ConvertToChanks(argv[4]);
     }
     else if(mode == "decode") {
         result.mode = Mode::DECODE;
 
-        result.block_bits = StringToInt(argv[2]);
-        if(result.block_bits < 0) {
+        result.total_bits = StringToInt(argv[2]);
+        if(result.total_bits < 0) {
             result.mode = Mode::ERROR;
             fprintf(stderr, "Hammming: In function Parse(int, char**)\n\tInvalid integer '%s'\nNote: >0\n", argv[2]);
             return result;
         }
 
-        result.src_bits = std::string(argv[3]).length();
         result.data = ConvertToChanks(argv[3]);
     }
     else if(mode == "is_valid") {
         result.mode = Mode::VALIDATE;
 
-        result.block_bits = StringToInt(argv[2]);
-        if(result.block_bits < 0) {
+        result.total_bits = StringToInt(argv[2]);
+        if(result.total_bits < 0) {
             result.mode = Mode::ERROR;
             fprintf(stderr, "Hammming: In function Parse(int, char**)\n\tInvalid integer '%s'\nNote: >0\n", argv[2]);
             return result;
         }
 
-        result.src_bits = std::string(argv[3]).length();
         result.data = ConvertToChanks(argv[3]);
     }
     else {
@@ -116,30 +114,38 @@ InputArgs Parse(int argc, char** argv) {
     return result;
 }
 
-void PrintBits(std::vector<uint8_t>& data, uint64_t total_bits) {
-    for(int i = 0;i < total_bits;i++) {
-        if(HammingCodec::GetBit(data.data(), i)) {
-            std::cout << '1';
-        }
-        else {
-            std::cout << '0';
-        }
-    }
-    std::cout << '\n';
-}
-
 int main(int argc, char** argv) {
     InputArgs args = Parse(argc, argv);
 
     switch (args.mode) {
         case Mode::ENCODE: {
-            std::vector<uint8_t> encoded_data = HammingCodec::Encode(args.data.data(), args.src_bits, args.data_bits, args.block_bits);
-            PrintBits(encoded_data, HammingCodec::CalculateTotalSize(args.data_bits, args.src_bits));
+            std::vector<uint8_t> encoded_data = HammingCodec::Encode(args.data.data(), args.data_bits, args.total_bits);
+            HammingCodec::PrintBits(encoded_data.data(), args.total_bits, std::cout);
             break;
         }
-        
-        default:
+
+        case Mode::DECODE: {
+            std::vector<uint8_t> decoded_data = HammingCodec::Decode(args.data.data(), args.total_bits);
+            uint64_t data_bits = args.total_bits - HammingCodec::CalculateControlBitsCount(args.total_bits);
+            std::cout << HammingCodec::CalculateControlBitsCount(args.total_bits) << '\n';
+            HammingCodec::PrintBits(decoded_data.data(), data_bits, std::cout);
             break;
+        }
+
+        case Mode::VALIDATE: {
+            std::cout << HammingCodec::Validate(args.data.data(), args.total_bits) << '\n';
+            break;
+        }
+
+        case Mode::ERROR: {
+            fprintf(stderr, "Hamming: parsing error\n");
+            return 1;
+        }
+
+        default: {
+            fprintf(stderr, "Hamming: unexpected error\n");
+            return -1;
+        }
     }
     
     return 0;
