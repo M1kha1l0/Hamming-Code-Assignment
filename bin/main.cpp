@@ -3,8 +3,6 @@
 #include <vector>
 #include <limits>
 
-#include <fstream>
-
 #include "codec.h"
 
 enum Mode {
@@ -112,6 +110,18 @@ InputArgs Parse(int argc, char** argv) {
     }
 
     return result;
+}
+
+void PrintBits(std::vector<uint8_t>& bits, uint64_t bits_count) {
+    for(int i = 0;i < bits_count;i++) {
+        if(HammingCodec::GetBit(bits.data(), i)) {
+            fprintf(stdout, "1");
+        }
+        else {
+            fprintf(stdout, "0");
+        }
+    }
+    fprintf(stdout, "\n");
 }
 
 int main(int argc, char** argv) {
