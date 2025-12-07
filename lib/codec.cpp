@@ -23,20 +23,20 @@ void HammingCodec::InvertBit(void* array, uint64_t index) {
 uint64_t HammingCodec::CalculateControlBitsCount(uint64_t total_bits) {
     uint64_t result = 0;
 
-    while((1 << result) < (total_bits + result + 1)) {
+    while((1 << result) < (total_bits + 1)) {
         result++;
     }
 
     return result;
 }
 
-uint64_t HammingCodec::CalculateTotalSize(uint64_t bytes_block_size) {
-    uint64_t bits = CalculateControlBitsCount(bytes_block_size);
-    return bytes_block_size + (bits + 7) / 8;
+uint64_t HammingCodec::CalculateTotalSize(uint64_t data_bits) {
+    return CalculateControlBitsCount(data_bits) + data_bits;
 }
 
-uint64_t HammingCodec::CalculateSyndrome(uint8_t* data, uint64_t control_bit_count, uint64_t total_bits) {
+uint64_t HammingCodec::CalculateSyndrome(uint8_t* data, uint64_t total_bits) {
     uint64_t syndrome = 0;
+    uint64_t control_bit_count = HammingCodec::CalculateControlBitsCount(total_bits);
     
     for(uint64_t i = 0; i < control_bit_count; i++) {
         uint64_t control_bit_pos = (1 << i);
@@ -57,46 +57,74 @@ uint64_t HammingCodec::CalculateSyndrome(uint8_t* data, uint64_t control_bit_cou
     return syndrome;
 }
             
-std::vector<uint8_t> HammingCodec::Encode(void *byte_sequence, uint64_t data_bits, uint64_t control_bits) {
-    uint64_t total_bits = data_bits + control_bits;
-    uint64_t encode_bytes_count = (total_bits + 7) / 8;
+std::vector<uint8_t> HammingCodec::Encode(void *byte_sequence, uint64_t data_bits, uint64_t total_bits) {
+    uint64_t control_bit_count = CalculateControlBitsCount(data_bits);
+    std::vector<uint8_t> encoded_data((total_bits + 7) / 8, 0);
         
-    std::vector<uint8_t> result;
     uint8_t* data = static_cast<uint8_t*>(byte_sequence);
-    result.resize(encode_bytes_count, 0);
 
     uint64_t data_bit_index = 0;
     for(uint64_t i = 1;i <= total_bits;i++) {
         if((i & (i-1)) != 0) {
             if(data_bit_index < data_bits) {
-                SetBit(result.data(), i - 1, GetBit(data, data_bit_index));
+                SetBit(encoded_data.data(), i - 1, GetBit(data, data_bit_index));
                 data_bit_index++;
             }
         }
-
     }
 
     for(uint64_t control_bit_pos = 1;control_bit_pos <= total_bits;control_bit_pos <<= 1) {
         uint8_t control_bit = 0;
         for(int i = 1; i <= total_bits;i++) {
             if(control_bit_pos & i) {
-                control_bit ^= GetBit(result.data(), i-1);
+                control_bit ^= GetBit(encoded_data.data(), i-1);
             }
         }
 
-        SetBit(result.data(), control_bit_pos-1, control_bit);
+        SetBit(encoded_data.data(), control_bit_pos-1, control_bit);
     }
 
-    return result;
-}
-
-bool HammingCodec::IsValid(void* byte_sequence, uint64_t total_bits) {
-
+    return encoded_data;
 }
 
 std::vector<uint8_t> HammingCodec::Decode(void* byte_sequence, uint64_t total_bits) {
-    std::vector<uint8_t> result;
+    uint64_t control_bit_count = CalculateControlBitsCount(total_bits);
+
+    std::vector<uint8_t> decoded_data((total_bits - control_bit_count + 7) / 8, 0);
     uint8_t* data = static_cast<uint8_t*>(byte_sequence);
 
-    return result;
+    uint64_t syndrome = CalculateSyndrome(data, total_bits);
+
+    if (syndrome != 0 && syndrome <= total_bits) {
+        InvertBit(data, syndrome - 1);
+    }
+
+    int result_bit_index = 0;
+    for(uint64_t i = 1;i <= total_bits;i++) {
+        if((i & (i - 1)) != 0) {
+            SetBit(decoded_data.data(), result_bit_index, GetBit(data, i - 1));
+            result_bit_index++;
+        }
+    }
+                
+    return decoded_data;
+}
+
+bool HammingCodec::Validate(void* byte_sequence, uint64_t total_bits) {
+    uint8_t* data = static_cast<uint8_t*>(byte_sequence);
+    if(CalculateSyndrome(data, total_bits) != 0) return false;
+    return true;
+}
+
+void HammingCodec::PrintBits(void* bit_sequence, uint64_t total_bits, std::ostream& stream) {
+    uint8_t* data = static_cast<uint8_t*>(bit_sequence);
+    for(int i = 0;i < total_bits;i++) {
+        if(GetBit(data, i)) {
+            stream << '1';
+        }
+        else {
+            stream << '0';
+        }
+    }
+    stream << '\n';
 }

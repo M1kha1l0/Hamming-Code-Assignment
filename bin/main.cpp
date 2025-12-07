@@ -48,9 +48,8 @@ int StringToInt(const char *string) {
 }
 
 std::vector<uint8_t> ConvertToChanks(std::string bit_sequence) {
-    uint64_t byte_counts = (bit_sequence.length() + 7) / 8;
-    std::vector<uint8_t> data;
-    data.resize(byte_counts, 0);
+    uint64_t bytes = (bit_sequence.length() + 7) / 8;
+    std::vector<uint8_t> data(bytes, 0);
 
     for(int i = 0;i < bit_sequence.length();i++) {
         if(bit_sequence[i] == '0') {
@@ -68,7 +67,6 @@ InputArgs Parse(int argc, char** argv) {
     InputArgs result;
 
     std::string mode(argv[1]);
-    std::vector<uint8_t> data;
     if(mode == "encode") {
         result.mode = Mode::ENCODE;
 
@@ -79,7 +77,6 @@ InputArgs Parse(int argc, char** argv) {
             fprintf(stderr, "Hammming: In function Parse(int, char**)\n\tInvalid integer '%s'\nNote: >0\n", argv[2]);
             return result;
         }
-
         result.data = ConvertToChanks(argv[4]);
     }
     else if(mode == "decode") {
@@ -133,23 +130,31 @@ int main(int argc, char** argv) {
     switch (args.mode) {
         case Mode::ENCODE: {
             std::vector<uint8_t> encoded_data = HammingCodec::Encode(args.data.data(), args.data_bits, args.total_bits);
-            PrintBits(encoded_data, args.total_bits);
+            HammingCodec::PrintBits(encoded_data.data(), args.total_bits, std::cout);
             break;
         }
-        
+
         case Mode::DECODE: {
             std::vector<uint8_t> decoded_data = HammingCodec::Decode(args.data.data(), args.total_bits);
-            PrintBits(decoded_data, args.total_bits);
+            uint64_t data_bits = args.total_bits - HammingCodec::CalculateControlBitsCount(args.total_bits);
+            std::cout << HammingCodec::CalculateControlBitsCount(args.total_bits) << '\n';
+            HammingCodec::PrintBits(decoded_data.data(), data_bits, std::cout);
             break;
         }
-        
+
         case Mode::VALIDATE: {
-            fprintf(stdout, "%d\n", HammingCodec::IsValid(args.data.data(), args.total_bits));
+            std::cout << HammingCodec::Validate(args.data.data(), args.total_bits) << '\n';
             break;
         }
-            
-        default: {
+
+        case Mode::ERROR: {
+            fprintf(stderr, "Hamming: parsing error\n");
             return 1;
+        }
+
+        default: {
+            fprintf(stderr, "Hamming: unexpected error\n");
+            return -1;
         }
     }
     
