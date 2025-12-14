@@ -1,2 +1,11 @@
 # cmake
 build
+
+# vscode
+.vscode/
+
+# obj
+*.o
+
+# lk
+*.a
